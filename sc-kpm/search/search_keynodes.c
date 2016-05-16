@@ -56,6 +56,8 @@ sc_addr keynode_languages;
 sc_addr keynode_rrel_1;
 sc_addr keynode_rrel_2;
 
+sc_addr keynode_json_format;
+
 const char keynode_question_all_output_const_pos_arc_str[] = "question_search_all_output_const_pos_arcs";
 const char keynode_question_all_input_const_pos_arc_str[] = "question_search_all_input_const_pos_arcs";
 const char keynode_question_all_output_const_pos_arc_with_rel_str[] = "question_search_all_output_const_pos_arcs_with_rel";
@@ -94,6 +96,8 @@ const char keynode_nrel_key_sc_element_base_order_str[] = "nrel_key_sc_element_b
 const char keynode_system_element_str[] = "system_element";
 const char keynode_sc_neighborhood_str[] = "semantic_neighbourhood";
 const char keynode_languages_str[] = "languages";
+
+const char keynode_json_format_str[] = "json_format";
 
 sc_result search_keynodes_initialize()
 {
@@ -136,6 +140,8 @@ sc_result search_keynodes_initialize()
     RESOLVE_KEYNODE(s_default_ctx, keynode_nrel_strict_inclusion);
     RESOLVE_KEYNODE(s_default_ctx, keynode_system_element);
     RESOLVE_KEYNODE(s_default_ctx, keynode_languages);
+
+    RESOLVE_KEYNODE(s_default_ctx, keynode_json_format);
 
     return SC_RESULT_OK;
 }

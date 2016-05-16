@@ -25,6 +25,8 @@ sc_event *event_question_search_all_identifiers;
 sc_event *event_question_search_all_identified_elements;
 sc_event *event_question_search_links_of_relation_connected_with_element;
 
+sc_event *event_new_element_of_json_format_discovered;
+
 // --------------------- Module ------------------------
 
 _SC_EXT_EXTERN sc_result initialize()
@@ -76,6 +78,10 @@ _SC_EXT_EXTERN sc_result initialize()
 
     event_question_search_links_of_relation_connected_with_element = sc_event_new(s_default_ctx, keynode_question_initiated, SC_EVENT_ADD_OUTPUT_ARC, 0, agent_search_links_of_relation_connected_with_element, 0);
     if (event_question_search_links_of_relation_connected_with_element == null_ptr)
+        return SC_RESULT_ERROR;
+
+    event_new_element_of_json_format_discovered = sc_event_new(s_default_ctx, keynode_json_format, SC_EVENT_ADD_OUTPUT_ARC, 0, agent_json_parser, 0);
+    if (event_new_element_of_json_format_discovered == null_ptr)
         return SC_RESULT_ERROR;
 
     return SC_RESULT_OK;
