@@ -111,6 +111,8 @@ _SC_EXT_EXTERN sc_result shutdown()
         sc_event_destroy(event_question_search_all_superclasses_in_quasybinary_relation);
     if (event_question_search_links_of_relation_connected_with_element)
         sc_event_destroy(event_question_search_links_of_relation_connected_with_element);
+    if (event_new_element_of_json_format_discovered)
+        sc_event_destroy(event_new_element_of_json_format_discovered);
 
     sc_memory_context_free(s_default_ctx);
 

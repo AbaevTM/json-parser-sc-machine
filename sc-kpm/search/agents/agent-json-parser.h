@@ -12,6 +12,7 @@
 /*!
  * Function that implements sc-agent of parsing json contents of nodes contained in json_format set.
  */
+
 sc_result agent_json_parser(const sc_event *event, sc_addr arg);
 
 #endif

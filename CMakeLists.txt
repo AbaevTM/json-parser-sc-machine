@@ -2,6 +2,7 @@ project (sc-machine)
 site_name (www.ostis.net)
 cmake_minimum_required (VERSION 2.8)
 
+set(CMAKE_BUILD_TYPE Debug)
 set(SC_MACHINE_ROOT ${CMAKE_SOURCE_DIR})
 set(SC_MACHINE_THIRDPARTY_PATH "${SC_MACHINE_ROOT}/thirdparty")
 set(SC_MACHINE_ANTRL_DIR "${SC_MACHINE_THIRDPARTY_PATH}/antlr")
@@ -36,6 +37,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DSC_DEBUG -DSC_PROFILE")
 # find dependencies
 if (${UNIX})
 	include(FindPkgConfig)
+
 	pkg_check_modules (GLIB2 REQUIRED glib-2.0)
 	pkg_check_modules (GLIB2_MODULE REQUIRED gmodule-2.0)
 	
