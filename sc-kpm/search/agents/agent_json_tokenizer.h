@@ -10,9 +10,9 @@
 #include <sc_memory.h>
 
 /*!
- * Function that implements sc-agent of parsing json contents of nodes contained in json_format set.
+ * Function that implements agent of tokenizing json contents of nodes contained in format_json set.
  */
 
-sc_result agent_json_parser(const sc_event *event, sc_addr arg);
+sc_result agent_json_tokenizer(const sc_event *event, sc_addr arg);
 
 #endif

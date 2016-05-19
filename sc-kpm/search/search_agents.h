@@ -12,6 +12,6 @@
 #include "agents/search_semantic_neighborhood.h"
 #include "agents/search_identifiers.h"
 #include "agents/search_structure.h"
-#include "agents/agent-json-parser.h"
+#include "agents/agent_json_tokenizer.h"
 
 #endif

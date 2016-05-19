@@ -80,7 +80,7 @@ _SC_EXT_EXTERN sc_result initialize()
     if (event_question_search_links_of_relation_connected_with_element == null_ptr)
         return SC_RESULT_ERROR;
 
-    event_new_element_of_json_format_discovered = sc_event_new(s_default_ctx, keynode_json_format, SC_EVENT_ADD_OUTPUT_ARC, 0, agent_json_parser, 0);
+    event_new_element_of_json_format_discovered = sc_event_new(s_default_ctx, keynode_format_json, SC_EVENT_ADD_OUTPUT_ARC, 0, agent_json_tokenizer, 0);
     if (event_new_element_of_json_format_discovered == null_ptr)
         return SC_RESULT_ERROR;
 
