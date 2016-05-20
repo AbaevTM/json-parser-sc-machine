@@ -15,9 +15,10 @@ extern "C"{
 
 #include <rapidjson/reader.h>
 #include <iostream>
+#include <sstream>
+#include <string>
 
 const char * AGENT_LOG_PREFIX = "C_AGENT JSON TOKENIZER : ";
-
 
 ///////////////////////////////
 ///// CONSTANTS ///////////////
@@ -46,6 +47,8 @@ const char * AGENT_LOG_PREFIX = "C_AGENT JSON TOKENIZER : ";
 #define JSON_TOKEN_NULL  "json_token_null"
 
 #define JSON_TOKEN_STRING  "json_token_string"
+
+#define JSON_TOKEN_KEY  "json_token_key"
 
 #define JSON_TOKEN_NUMERIC  "json_token_numeric"
 
@@ -87,6 +90,8 @@ sc_addr json_token_null;
 
 sc_addr json_token_string;
 
+sc_addr json_token_key;
+
 sc_addr json_token_numeric;
 
 sc_addr json_token_list;
@@ -108,6 +113,12 @@ using namespace rapidjson;
 using namespace std;
 
 #define ARC_TYPE sc_type_arc_common | sc_type_const
+
+#define MAX_NESTING_LEVEL 1000
+
+#define ENVELOPE_TYPE_OBJECT 1
+
+#define ENVELOPE_TYPE_ARRAY 2
 
 struct EmptyJSONVerifyingHandler {
     bool RawNumber(const char* str, SizeType length, bool copy) {
@@ -153,6 +164,7 @@ struct EmptyJSONVerifyingHandler {
         return true;
     }
 };
+
 struct JSONTokenizingHandler {
 
     sc_addr first_token_list_tuple;
@@ -163,7 +175,26 @@ struct JSONTokenizingHandler {
 
     sc_addr json_token_list;
 
+    sc_addr lastToken;
+
     bool hasElements = false;
+
+    bool lastTokenIsOpeningBracket = false;
+
+    bool lastTokenIsComma = false;
+
+    bool lastTokenIsKey = false;
+
+    int nestingLevel = 0;
+
+    int currentEnvelopeType[MAX_NESTING_LEVEL];
+
+    string toString (uint64_t number ){
+        ostringstream ss;
+        ss << number;
+        cout << AGENT_LOG_PREFIX <<  "  converting number to string" << number << " -> " << ss.str() << "\n";
+        return ss.str();
+    }
 
     void initialize() {
         json_token_list = sc_memory_node_new(s_default_ctx, sc_type_node & sc_type_const);
@@ -174,13 +205,38 @@ struct JSONTokenizingHandler {
         sc_memory_arc_new(s_default_ctx, sc_type_arc_pos_const_perm, nrel_tokenized_json, tuple);
     }
 
+    bool scAddrsAreEqual(sc_addr firstScAddr, sc_addr secondScAddr) {
+        return firstScAddr.offset == secondScAddr.offset && firstScAddr.seg == secondScAddr.seg;
+    }
+
     void createJSONTokenListItem(sc_addr jsonToken) {
+        if (nestingLevel > 0) {
+            if (currentEnvelopeType[nestingLevel] == ENVELOPE_TYPE_ARRAY) {
+                if (!scAddrsAreEqual(lastToken,json_token_left_square_bracket) && !lastTokenIsComma && !lastTokenIsOpeningBracket) {
+                    lastTokenIsComma = true;
+                    cout << AGENT_LOG_PREFIX << " adding COMMA token\n";
+                    createJSONTokenListItem(json_token_comma);
+                }
+            } else if (currentEnvelopeType[nestingLevel] == ENVELOPE_TYPE_OBJECT) {
+                if (!scAddrsAreEqual(lastToken,json_token_left_curly_bracket)
+                        && !scAddrsAreEqual(lastToken, json_token_colon)
+                        && !scAddrsAreEqual(jsonToken, json_token_colon)
+                        && !lastTokenIsComma
+                        && !lastTokenIsOpeningBracket
+                        && lastTokenIsKey) {
+                    lastTokenIsComma = true;
+                    cout << AGENT_LOG_PREFIX << " adding COMMA token\n";
+                    createJSONTokenListItem(json_token_comma);
+                }
+            }
+        }
         sc_addr new_list_item = sc_memory_node_new(s_default_ctx, sc_type_node & sc_type_const);
         sc_addr arc = sc_memory_arc_new(s_default_ctx, sc_type_arc_pos_const_perm, json_token_list, new_list_item);
         sc_addr tuple_value = sc_memory_arc_new(s_default_ctx, ARC_TYPE, new_list_item, jsonToken);
         sc_memory_arc_new(s_default_ctx, sc_type_arc_pos_const_perm, nrel_json_token_list_item_value, tuple_value);
         sc_memory_arc_new(s_default_ctx, sc_type_arc_pos_const_perm, json_token_list, tuple_value);
         sc_memory_arc_new(s_default_ctx, sc_type_arc_pos_const_perm, json_token_list, jsonToken);
+        lastToken = jsonToken;
         if (hasElements) {
             // generate next value
             sc_addr tuple_next = sc_memory_arc_new(s_default_ctx, ARC_TYPE, current_token_list_tuple, new_list_item);
@@ -192,40 +248,107 @@ struct JSONTokenizingHandler {
             sc_memory_arc_new(s_default_ctx, sc_type_arc_pos_const_perm, rrel_first_json_token_in_list, arc);
         }
         current_token_list_tuple = new_list_item;
+        lastTokenIsOpeningBracket = false;
+        lastTokenIsComma = false;
+        lastTokenIsKey = false;
     }
 
-    bool RawNumber(const char* str, SizeType length, bool copy) { cout << "Null()" << endl; return true; }
+    bool RawNumber(const char* str, SizeType length, bool copy) {
+        sc_stream * stream = sc_stream_memory_new(str, length, SC_STREAM_FLAG_READ, SC_FALSE);
+        sc_addr tokenNode = sc_memory_link_new(s_default_ctx);
+        sc_memory_arc_new(s_default_ctx, sc_type_arc_pos_const_perm, json_token_numeric, tokenNode);
+        sc_memory_set_link_content(s_default_ctx, tokenNode, stream);
+        sc_stream_free(stream);
+        createJSONTokenListItem(tokenNode);
+        return true;
+    }
     bool Null() {
         createJSONTokenListItem(json_token_null);
         return true;
     }
-    bool Bool(bool b) { cout << "!231231231BOOL!!!\n"; return true; }
-    bool Int(int i) { cout << "Int(" << i << ")" << endl; return true; }
-    bool Uint(unsigned u) { cout << "Uint(" << u << ")" << endl; return true; }
-    bool Int64(int64_t i) { cout << "Int64(" << i << ")" << endl; return true; }
-    bool Uint64(uint64_t u) { cout << "Uint64(" << u << ")" << endl; return true; }
-    bool Double(double d) { cout << "Double(" << d << ")" << endl; return true; }
-    bool String(const char* str, SizeType length, bool copy) {
-        cout << "String(" << str << ", " << length << ", " << boolalpha << copy << ")" << endl;
+
+    bool Bool(bool b) {
+        if (b) {
+            createJSONTokenListItem(json_token_true);
+        } else {
+            createJSONTokenListItem(json_token_false);
+        }
         return true;
     }
+
+    bool handleNumber(uint64_t number) {
+        string numberString = toString(number);
+        sc_stream * stream = sc_stream_memory_new(numberString.c_str(), numberString.size(), SC_STREAM_FLAG_READ, SC_FALSE);
+        sc_addr tokenNode = sc_memory_link_new(s_default_ctx);
+        sc_memory_arc_new(s_default_ctx, sc_type_arc_pos_const_perm, json_token_numeric, tokenNode);
+        sc_memory_set_link_content(s_default_ctx, tokenNode, stream);
+        sc_stream_free(stream);
+        createJSONTokenListItem(tokenNode);
+        return true;
+    }
+
+    bool Int(int i) {
+        return handleNumber(i);
+    }
+    bool Uint(unsigned u) {
+        return handleNumber(u);
+    }
+    bool Int64(int64_t i) {
+        return handleNumber(i);
+    }
+    bool Uint64(uint64_t u) {
+        return handleNumber(u);
+    }
+    bool Double(double d) {
+        // TODO Convert doubles later
+        return handleNumber(42);
+    }
+
+    bool handleString(const char* str, SizeType length, sc_addr tokenType) {
+        sc_stream * stream = sc_stream_memory_new(str, length, SC_STREAM_FLAG_READ, SC_FALSE);
+        sc_addr tokenNode = sc_memory_link_new(s_default_ctx);
+        sc_memory_arc_new(s_default_ctx, sc_type_arc_pos_const_perm, tokenType, tokenNode);
+        sc_memory_set_link_content(s_default_ctx, tokenNode, stream);
+        sc_stream_free(stream);
+        createJSONTokenListItem(tokenNode);
+        return true;
+    }
+
+    bool String(const char* str, SizeType length, bool copy) {
+        return handleString(str, length, json_token_string);
+    }
+
     bool StartObject() {
+        lastTokenIsOpeningBracket = true;
+        nestingLevel++;
+        currentEnvelopeType[nestingLevel] = ENVELOPE_TYPE_OBJECT;
         createJSONTokenListItem(json_token_left_curly_bracket);
         return true;
     }
+
     bool Key(const char* str, SizeType length, bool copy) {
-        cout << "Key(" << str << ", " << length << ", " << boolalpha << copy << ")" << endl;
-        return true;
+        lastTokenIsKey = true;
+        bool result = handleString(str, length, json_token_key);
+        createJSONTokenListItem(json_token_colon);
+        return result;
     }
+
     bool EndObject(SizeType memberCount) {
+        nestingLevel--;
         createJSONTokenListItem(json_token_right_curly_bracket);
         return true;
     }
+
     bool StartArray() {
+        lastTokenIsOpeningBracket = true;
+        nestingLevel++;
+        currentEnvelopeType[nestingLevel] = ENVELOPE_TYPE_ARRAY;
         createJSONTokenListItem(json_token_left_square_bracket);
         return true;
     }
+
     bool EndArray(SizeType elementCount) {
+        nestingLevel--;
         createJSONTokenListItem(json_token_right_square_bracket);
         return true;
     }
@@ -366,6 +489,39 @@ sc_result initializeConstants() {
                 &nrel_tokenized_json
                 ) != SC_RESULT_OK) {
         cout << AGENT_LOG_PREFIX << " cannot find keynode " << NREL_TOKENIZED_JSON << "\n";
+        return SC_RESULT_ERROR;
+    }
+    if(sc_helper_find_element_by_system_identifier(s_default_ctx,
+                JSON_TOKEN_KEY,
+                strlen(JSON_TOKEN_KEY),
+                &json_token_key
+                ) != SC_RESULT_OK) {
+        cout << AGENT_LOG_PREFIX << " cannot find keynode " << JSON_TOKEN_KEY << "\n";
+        return SC_RESULT_ERROR;
+    }
+
+    if(sc_helper_find_element_by_system_identifier(s_default_ctx,
+                JSON_TOKEN_TRUE,
+                strlen(JSON_TOKEN_TRUE),
+                &json_token_true
+                ) != SC_RESULT_OK) {
+        cout << AGENT_LOG_PREFIX << " cannot find keynode " << JSON_TOKEN_TRUE << "\n";
+        return SC_RESULT_ERROR;
+    }
+    if(sc_helper_find_element_by_system_identifier(s_default_ctx,
+                JSON_TOKEN_FALSE,
+                strlen(JSON_TOKEN_FALSE),
+                &json_token_false
+                ) != SC_RESULT_OK) {
+        cout << AGENT_LOG_PREFIX << " cannot find keynode " << JSON_TOKEN_FALSE << "\n";
+        return SC_RESULT_ERROR;
+    }
+    if(sc_helper_find_element_by_system_identifier(s_default_ctx,
+                JSON_TOKEN_NULL,
+                strlen(JSON_TOKEN_NULL),
+                &json_token_null
+                ) != SC_RESULT_OK) {
+        cout << AGENT_LOG_PREFIX << " cannot find keynode " << JSON_TOKEN_NULL << "\n";
         return SC_RESULT_ERROR;
     }
     return SC_RESULT_OK;
